@@ -1,0 +1,505 @@
+{
+  "nbformat": 4,
+  "nbformat_minor": 0,
+  "metadata": {
+    "colab": {
+      "name": "Untitled20.ipynb",
+      "provenance": [],
+      "authorship_tag": "ABX9TyNd9NvYFQrETpWiSrMZv0A9",
+      "include_colab_link": true
+    },
+    "kernelspec": {
+      "name": "python3",
+      "display_name": "Python 3"
+    },
+    "language_info": {
+      "name": "python"
+    }
+  },
+  "cells": [
+    {
+      "cell_type": "markdown",
+      "metadata": {
+        "id": "view-in-github",
+        "colab_type": "text"
+      },
+      "source": [
+        "<a href=\"https://colab.research.google.com/github/Thiyagu07/Transactions/blob/main/Transaction_aggregation\" target=\"_parent\"><img src=\"https://colab.research.google.com/assets/colab-badge.svg\" alt=\"Open In Colab\"/></a>"
+      ]
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "id": "96ZfFFYqdAWf"
+      },
+      "source": [
+        "import pandas as pd\n"
+      ],
+      "execution_count": 1,
+      "outputs": []
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "id": "6PZ-p-4BdKhp"
+      },
+      "source": [
+        "## Read the input file with the characteristics\n",
+        "\n",
+        "is_chunk_needed=True\n",
+        "filename='input.csv'\n",
+        "col_names=('TimeStamp Symbol Quantity Price').split()\n",
+        "chunk_size=12000\n",
+        "\n",
+        "def load_data(filename, chunk_size=10000, is_chunk_needed=False):\n",
+        "  if is_chunk_needed:\n",
+        "    df_chunks=pd.read_csv(filename, chunksize=chunk_size, names= col_names)\n",
+        "  else:\n",
+        "    df_chunks=pd.read_csv(filename, names=col_names)  \n",
+        "\n",
+        "  return df_chunks"
+      ],
+      "execution_count": 7,
+      "outputs": []
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "id": "QrnPAQEE4wQp"
+      },
+      "source": [
+        "\n",
+        "def final_agg_result(pricevol_list,timestamp_list):\n",
+        " \n",
+        "    def _final_agg(df):\n",
+        "      out={}\n",
+        "      out['Tot_Vol']=df['Tot_Vol'].sum()\n",
+        "      out['Max_Price']=df['Max_Price'].max()\n",
+        "      out['Portfolio_Value']=df['Portfolio_Value'].sum()\n",
+        "      #out['Max_Gap']=df['Max_Gap'].max()\n",
+        "      out['Avg_Price']=round(out['Portfolio_Value']/out['Tot_Vol'])\n",
+        "      return pd.Series((out)).astype(int)\n",
+        "\n",
+        "    price_vol_df=pd.concat(pricevol_list)\n",
+        "    price_vol_agg=price_vol_df.groupby('Symbol').apply(_final_agg)\n",
+        "    print('done pricevol')\n",
+        "    timestamp_df=pd.concat(timestamp_list)\n",
+        "    timestamp_agg=timestamp_df.groupby('Symbol')['Max_Gap'].max()\n",
+        "    timestamp_df=pd.concat(timestamp_list)\n",
+        "    df_agg_chunk=pd.merge(price_vol_agg,timestamp_agg,how='left',on='Symbol') \n",
+        "    #result=df_agg_chunk.groupby('Symbol').apply(_final_agg).reset_index()\n",
+        "\n",
+        "    return df_agg_chunk"
+      ],
+      "execution_count": 14,
+      "outputs": []
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "colab": {
+          "base_uri": "https://localhost:8080/"
+        },
+        "id": "qAKj7ieRq9jf",
+        "outputId": "69d78583-173d-4cb8-d848-d0c9be884546"
+      },
+      "source": [
+        "## Writing the test_query\n",
+        "\n",
+        "# Setting the is_chunk_needed True and getting the aggregated final result\n",
+        "\n",
+        "df_chunks=load_data(filename, chunk_size,is_chunk_needed)\n",
+        "pricevol_list, timestamp_list=agg_df_chunk(df_chunks,is_chunk_needed)\n",
+        "df_result=final_agg_result(pricevol_list,timestamp_list)\n",
+        "\n",
+        "## Setting the is_chunk_needed False and getting the aggregated final result without using an chunking\n",
+        "df_chunks=load_data(filename)\n",
+        "pricevol_list_1, timestamp_list_1=agg_df_chunk(df_chunks)\n",
+        "df_result_1=final_agg_result(pricevol_list_1,timestamp_list_1)\n",
+        "\n",
+        "## Getting the results\n",
+        "\n",
+        "print(\" The result is same with and without chunking\",df_result.equals(df_result_1))\n",
+        "\n",
+        "\n",
+        "\n"
+      ],
+      "execution_count": 20,
+      "outputs": [
+        {
+          "output_type": "stream",
+          "text": [
+            "Running aggregation of transactions on chunk 0\n",
+            "Running aggregation of transactions on chunk 1\n",
+            "done pricevol\n",
+            "done pricevol\n",
+            " The result is same with and without chunking True\n"
+          ],
+          "name": "stdout"
+        }
+      ]
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "colab": {
+          "base_uri": "https://localhost:8080/",
+          "height": 450
+        },
+        "id": "-sVT5mdXx7fm",
+        "outputId": "e3a38b4c-7e77-40d5-dddf-7d70b25aeb6d"
+      },
+      "source": [
+        "df_result.drop(['Portfolio_Value'],1)"
+      ],
+      "execution_count": 25,
+      "outputs": [
+        {
+          "output_type": "execute_result",
+          "data": {
+            "text/html": [
+              "<div>\n",
+              "<style scoped>\n",
+              "    .dataframe tbody tr th:only-of-type {\n",
+              "        vertical-align: middle;\n",
+              "    }\n",
+              "\n",
+              "    .dataframe tbody tr th {\n",
+              "        vertical-align: top;\n",
+              "    }\n",
+              "\n",
+              "    .dataframe thead th {\n",
+              "        text-align: right;\n",
+              "    }\n",
+              "</style>\n",
+              "<table border=\"1\" class=\"dataframe\">\n",
+              "  <thead>\n",
+              "    <tr style=\"text-align: right;\">\n",
+              "      <th></th>\n",
+              "      <th>Tot_Vol</th>\n",
+              "      <th>Max_Price</th>\n",
+              "      <th>Avg_Price</th>\n",
+              "      <th>Max_Gap</th>\n",
+              "    </tr>\n",
+              "    <tr>\n",
+              "      <th>Symbol</th>\n",
+              "      <th></th>\n",
+              "      <th></th>\n",
+              "      <th></th>\n",
+              "      <th></th>\n",
+              "    </tr>\n",
+              "  </thead>\n",
+              "  <tbody>\n",
+              "    <tr>\n",
+              "      <th>aaa</th>\n",
+              "      <td>8785</td>\n",
+              "      <td>212</td>\n",
+              "      <td>124</td>\n",
+              "      <td>9898372.0</td>\n",
+              "    </tr>\n",
+              "    <tr>\n",
+              "      <th>aab</th>\n",
+              "      <td>8291</td>\n",
+              "      <td>786</td>\n",
+              "      <td>387</td>\n",
+              "      <td>9766473.0</td>\n",
+              "    </tr>\n",
+              "    <tr>\n",
+              "      <th>aac</th>\n",
+              "      <td>8023</td>\n",
+              "      <td>164</td>\n",
+              "      <td>91</td>\n",
+              "      <td>9876155.0</td>\n",
+              "    </tr>\n",
+              "    <tr>\n",
+              "      <th>aad</th>\n",
+              "      <td>8864</td>\n",
+              "      <td>163</td>\n",
+              "      <td>90</td>\n",
+              "      <td>9507268.0</td>\n",
+              "    </tr>\n",
+              "    <tr>\n",
+              "      <th>aae</th>\n",
+              "      <td>8778</td>\n",
+              "      <td>370</td>\n",
+              "      <td>199</td>\n",
+              "      <td>9982526.0</td>\n",
+              "    </tr>\n",
+              "    <tr>\n",
+              "      <th>...</th>\n",
+              "      <td>...</td>\n",
+              "      <td>...</td>\n",
+              "      <td>...</td>\n",
+              "      <td>...</td>\n",
+              "    </tr>\n",
+              "    <tr>\n",
+              "      <th>ggc</th>\n",
+              "      <td>8698</td>\n",
+              "      <td>217</td>\n",
+              "      <td>80</td>\n",
+              "      <td>9905394.0</td>\n",
+              "    </tr>\n",
+              "    <tr>\n",
+              "      <th>ggd</th>\n",
+              "      <td>10759</td>\n",
+              "      <td>117</td>\n",
+              "      <td>31</td>\n",
+              "      <td>9759319.0</td>\n",
+              "    </tr>\n",
+              "    <tr>\n",
+              "      <th>gge</th>\n",
+              "      <td>7455</td>\n",
+              "      <td>425</td>\n",
+              "      <td>238</td>\n",
+              "      <td>9476760.0</td>\n",
+              "    </tr>\n",
+              "    <tr>\n",
+              "      <th>ggf</th>\n",
+              "      <td>8300</td>\n",
+              "      <td>662</td>\n",
+              "      <td>446</td>\n",
+              "      <td>9842753.0</td>\n",
+              "    </tr>\n",
+              "    <tr>\n",
+              "      <th>ggg</th>\n",
+              "      <td>9291</td>\n",
+              "      <td>255</td>\n",
+              "      <td>97</td>\n",
+              "      <td>9958375.0</td>\n",
+              "    </tr>\n",
+              "  </tbody>\n",
+              "</table>\n",
+              "<p>343 rows × 4 columns</p>\n",
+              "</div>"
+            ],
+            "text/plain": [
+              "        Tot_Vol  Max_Price  Avg_Price    Max_Gap\n",
+              "Symbol                                          \n",
+              "aaa        8785        212        124  9898372.0\n",
+              "aab        8291        786        387  9766473.0\n",
+              "aac        8023        164         91  9876155.0\n",
+              "aad        8864        163         90  9507268.0\n",
+              "aae        8778        370        199  9982526.0\n",
+              "...         ...        ...        ...        ...\n",
+              "ggc        8698        217         80  9905394.0\n",
+              "ggd       10759        117         31  9759319.0\n",
+              "gge        7455        425        238  9476760.0\n",
+              "ggf        8300        662        446  9842753.0\n",
+              "ggg        9291        255         97  9958375.0\n",
+              "\n",
+              "[343 rows x 4 columns]"
+            ]
+          },
+          "metadata": {
+            "tags": []
+          },
+          "execution_count": 25
+        }
+      ]
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "id": "wVv7DHm0eL8U"
+      },
+      "source": [
+        "def agg_df_chunk(df_chunks,is_chunk_needed=False):\n",
+        "\n",
+        "  def _agg_price_vol(df):\n",
+        "\n",
+        "    agg_series={}\n",
+        "    agg_series['Tot_Vol']=df['Quantity'].sum()\n",
+        "    agg_series['Max_Price']=df['Price'].max()\n",
+        "    agg_series['Portfolio_Value']=(df['Price']*df['Quantity']).sum()\n",
+        "    agg_series['Avg_Price']=round(agg_series['Portfolio_Value']/agg_series['Tot_Vol'])\n",
+        "    return pd.Series(agg_series)\n",
+        "\n",
+        "\n",
+        "  def _agg_gap_symbol(df):\n",
+        "    agg_series={}\n",
+        "    df=df.sort_values(['TimeStamp'])\n",
+        "    df['TimeStamp_diff']=df['TimeStamp'].diff().fillna(0)\n",
+        "    agg_series['Max_Gap']=df['TimeStamp_diff'].max()\n",
+        "    return pd.Series(agg_series)\n",
+        "\n",
+        "\n",
+        "  def _get_last_timestamp_symbol(df):\n",
+        "    df=df.sort_values(['TimeStamp'])   \n",
+        "    return df.iloc[-1,:]\n",
+        "\n",
+        "\n",
+        "  out_pricevol_chunk=[]\n",
+        "  out_timegap_chunk=[]\n",
+        "  last_stamp_data=pd.DataFrame()  \n",
+        "  if is_chunk_needed:\n",
+        "    for index,df in enumerate(df_chunks):\n",
+        "      print(\"Running aggregation of transactions on chunk {}\".format(index))\n",
+        "    # calculate the aggregation per chunk\n",
+        "      df_grouped=df.groupby('Symbol')\n",
+        "      out_pricevol_chunk.append(df_grouped.apply(_agg_price_vol))\n",
+        "      df=pd.concat([last_stamp_data,df])\n",
+        "      df_timestamp_grouped=df.groupby('Symbol')\n",
+        "      out_timegap_chunk.append(df_timestamp_grouped.apply(_agg_gap_symbol))\n",
+        "      last_stamp_data=df_grouped.apply(_get_last_timestamp_symbol)\n",
+        "  else :\n",
+        "\n",
+        "    out_pricevol=df_chunks.groupby('Symbol').apply(_agg_price_vol).reset_index()\n",
+        "    out_pricevol_chunk.append(out_pricevol)\n",
+        "    out_timegap=df_chunks.groupby('Symbol').apply(_agg_gap_symbol).reset_index()\n",
+        "    out_timegap_chunk.append(out_timegap)  \n",
+        " \n",
+        "  return  out_pricevol_chunk,out_timegap_chunk "
+      ],
+      "execution_count": 4,
+      "outputs": []
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "colab": {
+          "base_uri": "https://localhost:8080/"
+        },
+        "id": "d797BB5sof20",
+        "outputId": "41413a8e-50fc-46fb-e60b-923035db49d5"
+      },
+      "source": [
+        "out1,out2=agg_df_chunk(df_chunks)"
+      ],
+      "execution_count": 95,
+      "outputs": [
+        {
+          "output_type": "stream",
+          "text": [
+            "inside chunk operation\n",
+            "inside chunk operation\n"
+          ],
+          "name": "stdout"
+        }
+      ]
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "colab": {
+          "base_uri": "https://localhost:8080/"
+        },
+        "id": "yrxuVGDconyR",
+        "outputId": "ed8c08a2-34b5-4e3c-fb2d-1f4838e9546d"
+      },
+      "source": [
+        "out1"
+      ],
+      "execution_count": 97,
+      "outputs": [
+        {
+          "output_type": "execute_result",
+          "data": {
+            "text/plain": [
+              "[        Tot_Vol  Max_Price  Portfolio_Value  Avg_Price\n",
+              " Symbol                                                \n",
+              " aaa        5647        212           743166        132\n",
+              " aab        5249        581          1745776        333\n",
+              " aac        5212        164           511585         98\n",
+              " aad        5876        163           562221         96\n",
+              " aae        5252        278           898693        171\n",
+              " ...         ...        ...              ...        ...\n",
+              " ggc        5098        217           548711        108\n",
+              " ggd        6222        117           284245         46\n",
+              " gge        4058        425          1241086        306\n",
+              " ggf        5041        600          2144160        425\n",
+              " ggg        5474        255           725311        133\n",
+              " \n",
+              " [343 rows x 4 columns],         Tot_Vol  Max_Price  Portfolio_Value  Avg_Price\n",
+              " Symbol                                                \n",
+              " aaa        3138        141           347835        111\n",
+              " aab        3042        786          1459913        480\n",
+              " aac        2811        126           221784         79\n",
+              " aad        2988        116           234084         78\n",
+              " aae        3526        370           848373        241\n",
+              " ...         ...        ...              ...        ...\n",
+              " ggc        3600         60           151083         42\n",
+              " ggd        4537         19            47905         11\n",
+              " gge        3397        240           533618        157\n",
+              " ggf        3259        662          1554143        477\n",
+              " ggg        3817         96           173573         45\n",
+              " \n",
+              " [343 rows x 4 columns]]"
+            ]
+          },
+          "metadata": {
+            "tags": []
+          },
+          "execution_count": 97
+        }
+      ]
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "id": "WaclsMeXmzGj"
+      },
+      "source": [
+        "  def _agg_price_vol(df):\n",
+        "    agg_series={}\n",
+        "    agg_series['Tot_Vol']=df['Quantity'].sum()\n",
+        "    agg_series['Max_Price']=df['Price'].max()\n",
+        "    agg_series['Portfolio_Value']=(df['Price']*df['Quantity']).sum()\n",
+        "    agg_series['Avg_Price']=round(agg_series['Portfolio_Value']/agg_series['Tot_Vol'])\n",
+        "    return agg_series"
+      ],
+      "execution_count": 49,
+      "outputs": []
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "colab": {
+          "base_uri": "https://localhost:8080/"
+        },
+        "id": "2JDTffRinWXM",
+        "outputId": "2998c516-1663-4e53-8b07-a2f6b9759c72"
+      },
+      "source": [
+        "df_chunks.groupby('Symbol').apply(_agg_price_vol)"
+      ],
+      "execution_count": 50,
+      "outputs": [
+        {
+          "output_type": "execute_result",
+          "data": {
+            "text/plain": [
+              "Symbol\n",
+              "aaa    {'Tot_Vol': 8785, 'Max_Price': 212, 'Portfolio...\n",
+              "aab    {'Tot_Vol': 8291, 'Max_Price': 786, 'Portfolio...\n",
+              "aac    {'Tot_Vol': 8023, 'Max_Price': 164, 'Portfolio...\n",
+              "aad    {'Tot_Vol': 8864, 'Max_Price': 163, 'Portfolio...\n",
+              "aae    {'Tot_Vol': 8778, 'Max_Price': 370, 'Portfolio...\n",
+              "                             ...                        \n",
+              "ggc    {'Tot_Vol': 8698, 'Max_Price': 217, 'Portfolio...\n",
+              "ggd    {'Tot_Vol': 10759, 'Max_Price': 117, 'Portfoli...\n",
+              "gge    {'Tot_Vol': 7455, 'Max_Price': 425, 'Portfolio...\n",
+              "ggf    {'Tot_Vol': 8300, 'Max_Price': 662, 'Portfolio...\n",
+              "ggg    {'Tot_Vol': 9291, 'Max_Price': 255, 'Portfolio...\n",
+              "Length: 343, dtype: object"
+            ]
+          },
+          "metadata": {
+            "tags": []
+          },
+          "execution_count": 50
+        }
+      ]
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "id": "uEvuBb55neiC"
+      },
+      "source": [
+        ""
+      ],
+      "execution_count": null,
+      "outputs": []
+    }
+  ]
+}
